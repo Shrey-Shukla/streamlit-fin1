@@ -33,7 +33,7 @@ credentials = {
 
 authenticator = stauth.Authenticate(credentials, "portfolio_app", "abcdef", cookie_expiry_days=1)
 
-name, authentication_status, username = authenticator.login("Login", "main")
+name, authentication_status, username = authenticator.login("Login", "sidebar")
 
 # Simple usage logging function
 def log_user_activity(username, action):
