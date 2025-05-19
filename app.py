@@ -26,76 +26,6 @@ st.sidebar.success(f"Welcome, {username}!")
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 
 
-def extract_table_using_gpt(image_file, api_key):
-    img = Image.open(image_file).convert("RGB")
-    st.image(img, caption="Uploaded Screenshot", use_column_width=True)
-
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-        img.save(tmp.name, format="PNG")
-        tmp_path = tmp.name
-
-    imgbb_key = "e13ed12a576ec71e5c53cb86220eb9e8"
-    with open(tmp_path, "rb") as f:
-        upload = requests.post(
-            "https://api.imgbb.com/1/upload",
-            params={"key": imgbb_key},
-            files={"image": f}
-        )
-
-    if upload.status_code != 200:
-        st.error("Failed to upload image to ImgBB. Please try again.")
-        return pd.DataFrame()
-
-    try:
-        image_url = upload.json()["data"]["url"]
-    except:
-        st.error("Invalid response from ImgBB.")
-        return pd.DataFrame()
-
-    messages = [
-        {
-            "role": "system",
-            "content": "You are an expert in reading screenshots and extracting financial data."
-        },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Extract a table with columns 'Stock' and 'Amount Invested' from the image below."
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": image_url
-                    }
-                }
-            ]
-        }
-    ]
-
-    openai_client = openai.OpenAI(api_key=api_key)
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-        )
-    except Exception as e:
-        st.error(f"OpenAI API call failed: {e}")
-        return pd.DataFrame()
-
-    text_output = response.choices[0].message.content
-    st.subheader("📋 Extracted Table (raw)")
-    st.code(text_output, language="csv")
-
-    try:
-        df = pd.read_csv(pd.compat.StringIO(text_output)) if "Stock" in text_output else pd.DataFrame()
-    except Exception as e:
-        st.error(f"Failed to parse GPT output into table: {e}")
-        df = pd.DataFrame()
-
-    return df
-
 
 
 # Only show Screenshot mode
@@ -161,13 +91,25 @@ def extract_table_using_gpt(image_file, api_key):
 
     openai_client = openai.OpenAI(api_key=api_key)
     try:
+        try:
         response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
         )
     except Exception as e:
-        st.error(f"OpenAI API call failed: {e}")
-        return pd.DataFrame()
+        if hasattr(e, 'status_code') and e.status_code == 429:
+            st.warning("gpt-4o quota exceeded. Falling back to gpt-3.5-turbo.")
+            try:
+                response = openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                )
+            except Exception as fallback_error:
+                st.error(f"OpenAI fallback call also failed: {fallback_error}")
+                return pd.DataFrame()
+        else:
+            st.error(f"OpenAI API call failed: {e}")
+            return pd.DataFrame()
 
     text_output = response.choices[0].message.content
     st.subheader("📋 Extracted Table (raw)")
