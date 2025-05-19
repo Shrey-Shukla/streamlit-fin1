@@ -96,19 +96,3 @@ if not df.empty:
     st.subheader("✅ Extracted Portfolio Table")
     st.dataframe(df)
 
-# --------------------------------------------------------------------------------
-# 🔒 OpenAI fallback (preserved, commented for backup)
-
-"""
-# import openai
-# openai_api_key = st.secrets["OPENAI_API_KEY"]
-# def extract_table_using_gpt(image_file, api_key):
-#     # [same imgbb upload logic...]
-#     # openai_client = openai.OpenAI(api_key=api_key)
-#     # try:
-#     #     response = openai_client.chat.completions.create(...)
-#     #     model_used = "gpt-4o"
-#     # except openai.APIError:
-#     #     response = openai_client.chat.completions.create(model="gpt-3.5-turbo", ...)
-#     # return parsed DataFrame
-"""
