@@ -63,14 +63,26 @@ def extract_table_using_gpt(image_file, api_key):
 
     # Construct GPT-4o vision prompt
     messages = [
-        {"role": "system", "content": "You are an expert in reading screenshots and extracting financial data."},
-        {"role": "user", "content": "Extract a table with columns 'Stock' and 'Amount Invested' from the image below."},
-        {"role": "user", "content": [
-            {
-                "type": "image_url",
-                "image_url": {"url": image_url}
-            }
-        ]}
+        {
+            "role": "system",
+            "content": "You are an expert in reading screenshots and extracting financial data."
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Extract a table with columns 'Stock' and 'Amount Invested' from the image below."
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": image_url
+                    }
+                }
+            ]
+        }
+    ]}
     ]
 
     openai.api_key = api_key
@@ -84,4 +96,7 @@ def extract_table_using_gpt(image_file, api_key):
         df = pd.read_csv(pd.compat.StringIO(text_output)) if "Stock" in text_output else pd.DataFrame()
     except:
         df = pd.DataFrame()
-    return df
+    
+    st.subheader("📋 Extracted Table (raw)")
+    st.code(text_output, language="csv")
+
