@@ -1,14 +1,14 @@
 import streamlit as st
 import pandas as pd
 from PIL import Image
-from io import BytesIO
+from io import BytesIO, StringIO
 import tempfile
 import google.generativeai as genai
-from fpdf import FPDF  # 📄 For PDF export
+from fpdf import FPDF
 
 st.set_page_config(page_title="Portfolio Risk Analyzer", layout="wide")
 st.title("📊 AI Portfolio Risk Analyzer")
-st.markdown("Upload a screenshot of your portfolio and receive an AI-powered risk summary + recommendations.")
+st.markdown("Upload a screenshot of your portfolio to extract investment details and get a risk summary.")
 
 st.session_state.authenticated = True
 st.session_state.username = "debug_user"
@@ -16,7 +16,7 @@ st.sidebar.success(f"Welcome, {st.session_state.username}!")
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# 📄 Generate PDF summary
+# 📄 Generate downloadable PDF
 def generate_pdf(df, recommendation, ai_summary):
     pdf = FPDF()
     pdf.add_page()
@@ -30,7 +30,6 @@ def generate_pdf(df, recommendation, ai_summary):
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Extracted Portfolio Table", ln=True)
     pdf.set_font("Arial", "", 10)
-
     for _, row in df.iterrows():
         pdf.cell(0, 10, f"{row['Stock']}: ₹{row['Amount Invested']:,.0f}", ln=True)
 
@@ -47,11 +46,20 @@ def generate_pdf(df, recommendation, ai_summary):
         pdf.set_font("Arial", "", 11)
         pdf.multi_cell(0, 10, ai_summary)
 
-    pdf_file = BytesIO()
-    pdf.output(pdf_file)
-    return pdf_file.getvalue()
+    output = BytesIO()
+    pdf.output(output)
+    return output.getvalue()
 
-# 📊 Extract table from image
+# 🧹 Clean Gemini CSV output
+def clean_gemini_csv(text_output):
+    lines = text_output.strip().splitlines()
+    lines = [line for line in lines if not line.strip().startswith("|---")]
+    lines = [line for line in lines if line.strip() and not line.strip().startswith("#")]
+    if "|" in lines[0]:
+        lines = [line.replace("|", ",").strip() for line in lines]
+    return "\n".join(lines)
+
+# 🧠 Gemini table extraction
 def extract_table_using_gemini(image_file):
     with st.spinner("🔍 Processing screenshot with Gemini..."):
         prompt = """
@@ -71,21 +79,15 @@ No explanation or commentary — only the raw table.
     st.success("✅ Gemini response received")
     st.code(text_output)
 
-    if "Stock" in text_output and "Amount" in text_output and "," in text_output:
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", encoding="utf-8") as temp_file:
-                temp_file.write(text_output)
-                temp_file_path = temp_file.name
-            df = pd.read_csv(temp_file_path)
-            return df
-        except Exception as e:
-            st.warning(f"Failed to parse table: {e}")
-            return pd.DataFrame()
-    else:
-        st.warning("⚠️ Output doesn't contain a valid table.")
+    try:
+        cleaned = clean_gemini_csv(text_output)
+        df = pd.read_csv(StringIO(cleaned))
+        return df
+    except Exception as e:
+        st.warning(f"⚠️ Could not parse Gemini table: {e}")
         return pd.DataFrame()
 
-# Upload interface
+# 📤 Upload interface
 st.subheader("📸 Upload Screenshot")
 uploaded_file = st.file_uploader("Upload your portfolio screenshot", type=["png", "jpg", "jpeg"], key="main_upload")
 
@@ -95,7 +97,7 @@ if uploaded_file is not None:
     if process_now:
         df = extract_table_using_gemini(uploaded_file)
 
-# Summary + Export
+# 📊 Summary + Export
 if not df.empty:
     st.subheader("✅ Extracted Portfolio Table")
     st.dataframe(df)
@@ -120,24 +122,20 @@ if not df.empty:
             st.success("✅ Diversified: no stock exceeds 30% allocation.")
             recommendation = "Your portfolio looks balanced. Continue monitoring allocation periodically."
 
-        # ✅ Gemini AI-generated final summary
+        # 🧠 AI-generated portfolio summary
         st.subheader("🧠 AI-Generated Summary")
         summary_prompt = f"Provide a one-paragraph portfolio analysis for the following table:\n{df.to_csv(index=False)}"
         ai_response = genai.GenerativeModel("gemini-1.5-flash").generate_content(summary_prompt)
         ai_summary = ai_response.text.strip()
         st.markdown(ai_summary)
 
-        # ✅ Final summary box
         st.subheader("📌 Final Recommendation")
         st.success(recommendation)
 
-        # ✅ Download buttons
+        # 📥 Downloads
         st.subheader("📤 Download")
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download CSV", csv, "portfolio.csv", "text/csv")
-
-        pdf_bytes = generate_pdf(df, recommendation, ai_summary)
-        st.download_button("⬇️ Download PDF Report", pdf_bytes, "portfolio_summary.pdf", "application/pdf")
+        st.download_button("⬇️ Download CSV", df.to_csv(index=False).encode(), "portfolio.csv", "text/csv")
+        st.download_button("⬇️ Download PDF Report", generate_pdf(df, recommendation, ai_summary), "portfolio_summary.pdf", "application/pdf")
 
     except Exception as e:
         st.error(f"Risk analysis failed: {e}")
