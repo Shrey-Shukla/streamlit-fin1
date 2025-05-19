@@ -1,125 +1,33 @@
-# Portfolio Risk Analyzer - MVP using Streamlit + OpenAI + Pandas + Free Login via session_state
+025-05-19 12:41:12.713 Script compilation error
 
-import streamlit as st
-import pandas as pd
-import requests
-import datetime
-import os
-from PIL import Image
-import base64
-from io import BytesIO
-import openai
-import tempfile
+Traceback (most recent call last):
 
-st.set_page_config(page_title="Portfolio Risk Analyzer", layout="wide")
+  File "/home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptrunner/script_runner.py", line 553, in _run_script
 
-st.title("📊 AI Portfolio Risk Analyzer")
-st.markdown("Upload your portfolio (CSV or Screenshot of a table with `Stock` and `Amount Invested`) and get an AI-powered risk summary.")
+    code = self._script_cache.get_bytecode(script_path)
 
-# Simple login using Streamlit session_state (DISABLED FOR DEBUGGING)
-st.session_state.authenticated = True
-st.session_state.username = "debug_user"
+  File "/home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptrunner/script_cache.py", line 72, in get_bytecode
 
-# After login
-username = st.session_state.username
-st.sidebar.success(f"Welcome, {username}!")
-openai_api_key = st.secrets["OPENAI_API_KEY"]
+    filebody = magic.add_magic(filebody, script_path)
 
+  File "/home/adminuser/venv/lib/python3.13/site-packages/streamlit/runtime/scriptrunner/magic.py", line 46, in add_magic
 
+    tree = ast.parse(code, script_path, "exec")
 
+  File "/usr/local/lib/python3.13/ast.py", line 54, in parse
 
-# Only show Screenshot mode
-upload_type = st.radio("Select upload format", ["Screenshot Image"], index=0)
-uploaded_file = st.file_uploader("Upload your Portfolio", type=["png", "jpg", "jpeg"], key="main_upload")
+    return compile(source, filename, mode, flags,
 
-if uploaded_file is not None:
-    process_now = st.button("📥 Process Uploaded Portfolio", key="process_button")
-    if process_now:
-        df = extract_table_using_gpt(uploaded_file, openai_api_key)
-if 'df' in locals() and not df.empty:
-        st.subheader("✅ Processed Portfolio Table")
-        st.dataframe(df)
+                   _feature_version=feature_version, optimize=optimize)
 
+  File "/mount/src/streamlit-fin1/app.py", line 95
 
-def extract_table_using_gpt(image_file, api_key):
-    img = Image.open(image_file).convert("RGB")
-    st.image(img, caption="Uploaded Screenshot", use_column_width=True)
+    response = openai_client.chat.completions.create(
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
-        img.save(tmp.name, format="PNG")
-        tmp_path = tmp.name
+    ^^^^^^^^
 
-    imgbb_key = "e13ed12a576ec71e5c53cb86220eb9e8"
-    with open(tmp_path, "rb") as f:
-        upload = requests.post(
-            "https://api.imgbb.com/1/upload",
-            params={"key": imgbb_key},
-            files={"image": f}
-        )
+IndentationError: expected an indented block after 'try' statement on line 94
 
-    if upload.status_code != 200:
-        st.error("Failed to upload image to ImgBB. Please try again.")
-        return pd.DataFrame()
+2025-05-19 12:41:12.716 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
 
-    try:
-        image_url = upload.json()["data"]["url"]
-    except:
-        st.error("Invalid response from ImgBB.")
-        return pd.DataFrame()
-
-    messages = [
-        {
-            "role": "system",
-            "content": "You are an expert in reading screenshots and extracting financial data."
-        },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Extract a table with columns 'Stock' and 'Amount Invested' from the image below."
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": image_url
-                    }
-                }
-            ]
-        }
-    ]
-
-    openai_client = openai.OpenAI(api_key=api_key)
-    try:
-        try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-        )
-    except Exception as e:
-        if hasattr(e, 'status_code') and e.status_code == 429:
-            st.warning("gpt-4o quota exceeded. Falling back to gpt-3.5-turbo.")
-            try:
-                response = openai_client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                )
-            except Exception as fallback_error:
-                st.error(f"OpenAI fallback call also failed: {fallback_error}")
-                return pd.DataFrame()
-        else:
-            st.error(f"OpenAI API call failed: {e}")
-            return pd.DataFrame()
-
-    text_output = response.choices[0].message.content
-    st.subheader("📋 Extracted Table (raw)")
-    st.code(text_output, language="csv")
-
-    try:
-        df = pd.read_csv(pd.compat.StringIO(text_output)) if "Stock" in text_output else pd.DataFrame()
-    except Exception as e:
-        st.error(f"Failed to parse GPT output into table: {e}")
-        df = pd.DataFrame()
-
-    return df
-
+main
