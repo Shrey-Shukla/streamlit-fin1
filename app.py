@@ -58,7 +58,7 @@ if uploaded_file is not None:
     if process_now:
         df = extract_table_using_gemini(uploaded_file)
 
-# Display + Risk Summary
+# Display + Risk Summary + Final Recommendation
 if not df.empty:
     st.subheader("✅ Extracted Portfolio Table")
     st.dataframe(df)
@@ -78,13 +78,19 @@ if not df.empty:
         if not high_risk.empty:
             st.warning("⚠️ High concentration in:")
             st.dataframe(high_risk[["Stock", "Amount Invested", "Allocation %"]])
+            recommendation = "Diversify your portfolio by reducing high exposure stocks and reviewing smaller allocations."
         else:
             st.success("✅ Diversified: no stock exceeds 30% allocation.")
+            recommendation = "Your portfolio looks balanced. Continue monitoring allocation periodically."
 
         st.subheader("🧠 AI Recommendations")
         st.markdown("- Rebalance if any holding >30%.")
         st.markdown("- Add more sectors if all holdings are similar.")
         st.markdown("- Align with long-term risk-return goals.")
+
+        # ✅ Final recommendation box
+        st.subheader("📌 Final Recommendation")
+        st.success(recommendation)
 
     except Exception as e:
         st.error(f"Risk analysis failed: {e}")
