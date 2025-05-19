@@ -90,15 +90,16 @@ def extract_table_using_gpt(image_file, api_key):
     ]
 
     openai_client = openai.OpenAI(api_key=api_key)
-        try:
-        response = openai_client.chat.completions.create(
+    try:
+        with st.spinner("Calling GPT-4o..."):
+            response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
         )
     except Exception as e:
         if hasattr(e, 'status_code') and e.status_code == 429:
             st.warning("gpt-4o quota exceeded. Falling back to gpt-3.5-turbo.")
-            try:
+            with st.spinner("Calling GPT-3.5-turbo..."):
                 response = openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=messages,
