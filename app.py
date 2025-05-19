@@ -33,7 +33,7 @@ if uploaded_file is not None:
 # Only show Screenshot mode
 upload_type = st.radio("Select upload format", ["Screenshot Image"], index=0)
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["png", "jpg", "jpeg"], key="main_upload")
-    if 'df' in locals() and not df.empty:
+if 'df' in locals() and not df.empty:
         st.subheader("✅ Processed Portfolio Table")
         st.dataframe(df)
 
