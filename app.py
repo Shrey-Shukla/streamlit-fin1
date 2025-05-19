@@ -1,4 +1,4 @@
-# Portfolio Risk Analyzer - Gemini Version (with OpenAI backup)
+# Portfolio Risk Analyzer - Gemini 1.5 Flash (with OpenAI backup)
 
 import streamlit as st
 import pandas as pd
@@ -9,9 +9,8 @@ from io import BytesIO
 import tempfile
 import google.generativeai as genai  # ✅ Gemini SDK
 
-# Optional: import openai  # Used only in backup (commented)
+# Optional: import openai  # (OpenAI backup code commented below)
 
-# App config
 st.set_page_config(page_title="Portfolio Risk Analyzer", layout="wide")
 st.title("📊 AI Portfolio Risk Analyzer")
 st.markdown("Upload a **screenshot** of your portfolio and receive an AI-powered table extraction.")
@@ -22,10 +21,10 @@ st.session_state.username = "debug_user"
 username = st.session_state.username
 st.sidebar.success(f"Welcome, {username}!")
 
-# 🔐 Read Gemini key from secrets
+# Configure Gemini
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# 🔍 GPT alternative: Gemini-based screenshot extraction
+# 🧠 Gemini-powered screenshot parsing
 def extract_table_using_gemini(image_file):
     imgbb_key = "e13ed12a576ec71e5c53cb86220eb9e8"
 
@@ -46,10 +45,9 @@ def extract_table_using_gemini(image_file):
         return pd.DataFrame()
 
     prompt = """
-You are a financial assistant. Extract the investment table from the image. Output only a clean CSV format with columns: 'Stock', 'Amount Invested'.
-Do not include any explanation or notes. Only return the CSV-formatted text.
+You are a financial assistant. Extract the investment table from this screenshot. Output it in valid CSV format with two columns: 'Stock' and 'Amount Invested'. Return only the CSV table and nothing else.
 """
-    model = genai.GenerativeModel("gemini-pro-vision")
+    model = genai.GenerativeModel("gemini-1.5-flash")  # ✅ Updated model name
     try:
         with st.spinner("Processing with Gemini..."):
             response = model.generate_content(
@@ -64,8 +62,8 @@ Do not include any explanation or notes. Only return the CSV-formatted text.
     st.success("✅ Gemini response received")
     st.code(text_output)
 
-    # Try to parse output
-    if "Stock" in text_output and "," in text_output:
+    # Try to parse as CSV
+    if "Stock" in text_output and "Amount" in text_output and "," in text_output:
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", encoding="utf-8") as temp_file:
                 temp_file.write(text_output)
@@ -78,7 +76,6 @@ Do not include any explanation or notes. Only return the CSV-formatted text.
     else:
         st.warning("⚠️ Gemini output does not contain a valid table structure.")
         return pd.DataFrame()
-
 
 # 🖼️ Upload interface
 st.subheader("📸 Upload Screenshot")
@@ -95,4 +92,13 @@ if uploaded_file is not None:
 if not df.empty:
     st.subheader("✅ Extracted Portfolio Table")
     st.dataframe(df)
+
+# --------------------------------------------------------------------------------
+# 🗃️ OpenAI backup code (commented for future use)
+# import openai
+# openai_api_key = st.secrets["OPENAI_API_KEY"]
+# def extract_table_using_gpt(image_file, api_key):
+#     # Upload to imgbb and call OpenAI with gpt-4o
+#     # Fallback to gpt-3.5-turbo on quota error
+#     # Parse output as CSV using pandas
 
