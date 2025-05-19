@@ -47,7 +47,7 @@ if uploaded_file is not None:
     if process_now:
         if upload_type == "CSV File":
             try:
-                df = pd.read_csv(uploaded_file, encoding_errors='replace')
+                df = pd.read_csv(uploaded_file, encoding_errors='replace', on_bad_lines='skip')
                 st.success("CSV successfully loaded.")
             except Exception as e:
                 st.error(f"Error reading CSV: {e}")
