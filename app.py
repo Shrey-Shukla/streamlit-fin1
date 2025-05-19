@@ -8,7 +8,7 @@ from fpdf import FPDF
 
 st.set_page_config(page_title="Portfolio Risk Analyzer", layout="wide")
 st.title("📊 AI Portfolio Risk Analyzer")
-st.markdown("Upload a screenshot of your portfolio to extract investment details and get a risk summary.")
+st.markdown("Upload a screenshot of your portfolio. This version intelligently deduces investment names and amounts even from messy or unclear layouts.")
 
 st.session_state.authenticated = True
 st.session_state.username = "debug_user"
@@ -24,14 +24,14 @@ def generate_pdf(df, recommendation, ai_summary):
     pdf.cell(0, 10, "Portfolio Risk Summary", ln=True)
 
     pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 10, f"Total Invested: ₹{df['Amount Invested'].sum():,.0f}", ln=True)
+    pdf.cell(0, 10, f"Total Invested: ₹{df['Amount'].sum():,.0f}", ln=True)
     pdf.ln(5)
 
     pdf.set_font("Arial", "B", 12)
     pdf.cell(0, 10, "Extracted Portfolio Table", ln=True)
     pdf.set_font("Arial", "", 10)
     for _, row in df.iterrows():
-        pdf.cell(0, 10, f"{row['Stock']}: ₹{row['Amount Invested']:,.0f}", ln=True)
+        pdf.cell(0, 10, f"{row['Investment']}: ₹{row['Amount']:,.0f}", ln=True)
 
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
@@ -50,33 +50,50 @@ def generate_pdf(df, recommendation, ai_summary):
     pdf.output(output)
     return output.getvalue()
 
-# ✅ Clean & Parse Gemini's CSV output
-def parse_clean_csv(text_output):
-    cleaned_rows = []
+# 🧠 Flexible parser for messy CSV
+def parse_flexible_csv(text_output):
+    rows = []
     for line in text_output.strip().splitlines():
-        line = line.strip().replace("“", '"').replace("”", '"').replace("’", "'")
-        if line.count(",") == 1:
-            parts = line.split(",")
-            if len(parts) == 2:
-                cleaned_rows.append([p.strip() for p in parts])
+        parts = [p.strip() for p in line.split(",") if p.strip()]
+        if len(parts) == 2:
+            rows.append(parts)
 
-    try:
-        df = pd.DataFrame(cleaned_rows[1:], columns=cleaned_rows[0])  # skip header
-        df.columns = [col.strip() for col in df.columns]
-        df["Amount Invested"] = pd.to_numeric(df["Amount Invested"], errors="coerce")
-        df = df.dropna(subset=["Amount Invested"])
-        return df
-    except Exception as e:
-        st.warning(f"⚠️ Could not fully parse table: {e}")
+    if len(rows) < 2:
         return pd.DataFrame()
 
-# 🧠 Table Extraction from Gemini
+    headers = [col.lower() for col in rows[0]]
+    name_col = 0
+    amount_col = 1
+
+    if "amount" not in headers[1] and "invest" not in headers[1]:
+        name_col = 1
+        amount_col = 0
+
+    data = []
+    for r in rows[1:]:
+        try:
+            name = r[name_col]
+            amt = float(r[amount_col].replace("₹", "").replace(",", ""))
+            data.append([name, amt])
+        except:
+            continue
+
+    df = pd.DataFrame(data, columns=["Investment", "Amount"])
+    return df
+
+# 🧠 Gemini Table Extraction
 def extract_table_using_gemini(image_file):
-    with st.spinner("🔍 Processing screenshot with Gemini..."):
+    with st.spinner("🔍 Analyzing screenshot with Gemini..."):
         prompt = """
-You are a financial assistant. Extract the investment table from this screenshot.
-Output only a valid CSV table with two columns: 'Stock' and 'Amount Invested'.
-No explanation or commentary — only the raw table.
+You're a financial assistant. Analyze the attached screenshot and extract a clean list of investments.
+
+For each row, extract:
+1. The investment name (stock, mutual fund, or plan)
+2. The invested amount (in INR)
+
+Even if headers are unclear or inconsistent, infer the meaning from context.
+Output a clean CSV with headers: Investment, Amount.
+Only return the raw CSV.
 """
         try:
             img = Image.open(image_file).convert("RGB")
@@ -84,13 +101,13 @@ No explanation or commentary — only the raw table.
             response = model.generate_content([prompt, img], stream=False)
             text_output = response.text.strip()
         except Exception as e:
-            st.error(f"Gemini Vision failed: {e}")
+            st.error(f"Gemini failed: {e}")
             return pd.DataFrame()
 
     st.success("✅ Gemini response received")
     st.code(text_output)
 
-    return parse_clean_csv(text_output)
+    return parse_flexible_csv(text_output)
 
 # 📤 Upload Interface
 st.subheader("📸 Upload Screenshot")
@@ -102,43 +119,38 @@ if uploaded_file is not None:
     if process_now:
         df = extract_table_using_gemini(uploaded_file)
 
-# ✅ Show Extracted Table, Risk Summary, Downloads
+# ✅ Show Table + Risk + Download
 if not df.empty:
     st.subheader("✅ Extracted Portfolio Table")
     st.dataframe(df)
 
     st.subheader("📉 Portfolio Risk Summary")
-    df.columns = [col.strip() for col in df.columns]
 
     try:
-        df["Amount Invested"] = pd.to_numeric(df["Amount Invested"], errors="coerce")
-        df = df.dropna(subset=["Amount Invested"])
-        total_invested = df["Amount Invested"].sum()
+        df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
+        df = df.dropna(subset=["Amount"])
+        total_invested = df["Amount"].sum()
         st.write(f"**Total Invested:** ₹{total_invested:,.0f}")
 
-        df["Allocation %"] = df["Amount Invested"] / total_invested * 100
+        df["Allocation %"] = df["Amount"] / total_invested * 100
         high_risk = df[df["Allocation %"] > 30]
 
         if not high_risk.empty:
             st.warning("⚠️ High concentration in:")
-            st.dataframe(high_risk[["Stock", "Amount Invested", "Allocation %"]])
+            st.dataframe(high_risk[["Investment", "Amount", "Allocation %"]])
             recommendation = "Diversify your portfolio by reducing high exposure stocks and reviewing smaller allocations."
         else:
-            st.success("✅ Diversified: no stock exceeds 30% allocation.")
+            st.success("✅ Diversified: no holding exceeds 30% allocation.")
             recommendation = "Your portfolio looks balanced. Continue monitoring allocation periodically."
 
-        # AI Summary from Gemini
         st.subheader("🧠 AI-Generated Summary")
-        summary_prompt = f"Provide a one-paragraph portfolio analysis for the following table:\n{df.to_csv(index=False)}"
-        ai_response = genai.GenerativeModel("gemini-1.5-flash").generate_content(summary_prompt)
-        ai_summary = ai_response.text.strip()
+        summary_prompt = f"Write a one-paragraph risk analysis for this portfolio:\n{df.to_csv(index=False)}"
+        ai_summary = genai.GenerativeModel("gemini-1.5-flash").generate_content(summary_prompt).text.strip()
         st.markdown(ai_summary)
 
-        # Final Rec
         st.subheader("📌 Final Recommendation")
         st.success(recommendation)
 
-        # Downloads
         st.subheader("📤 Download")
         st.download_button("⬇️ Download CSV", df.to_csv(index=False).encode(), "portfolio.csv", "text/csv")
         st.download_button("⬇️ Download PDF Report", generate_pdf(df, recommendation, ai_summary), "portfolio_summary.pdf", "application/pdf")
