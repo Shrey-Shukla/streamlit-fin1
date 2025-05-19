@@ -29,6 +29,17 @@ openai_api_key = st.secrets["OPENAI_API_KEY"]
 upload_type = st.radio("Select upload format", ["Screenshot Image"], index=0)
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["png", "jpg", "jpeg"], key="main_upload")
 
+
+if uploaded_file is not None:
+    process_now = st.button("📥 Process Uploaded Portfolio")
+    if process_now:
+        df = extract_table_using_gpt(uploaded_file, openai_api_key)
+
+        if not df.empty:
+            st.subheader("✅ Processed Portfolio Table")
+            st.dataframe(df)
+
+
 def extract_table_using_gpt(image_file, api_key):
     img = Image.open(image_file).convert("RGB")
     st.image(img, caption="Uploaded Screenshot", use_column_width=True)
@@ -77,9 +88,9 @@ def extract_table_using_gpt(image_file, api_key):
         }
     ]
 
-    openai.api_key = api_key
+    openai_client = openai.OpenAI(api_key=api_key)
     try:
-        response = openai.ChatCompletion.create(
+        response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
         )
@@ -87,7 +98,7 @@ def extract_table_using_gpt(image_file, api_key):
         st.error(f"OpenAI API call failed: {e}")
         return pd.DataFrame()
 
-    text_output = response["choices"][0]["message"]["content"]
+    text_output = response.choices[0].message.content
     st.subheader("📋 Extracted Table (raw)")
     st.code(text_output, language="csv")
 
@@ -98,16 +109,5 @@ def extract_table_using_gpt(image_file, api_key):
         df = pd.DataFrame()
 
     return df
-
-
-if uploaded_file is not None:
-    process_now = st.button("📥 Process Uploaded Portfolio")
-    if process_now:
-        df = extract_table_using_gpt(uploaded_file, openai_api_key)
-
-        if not df.empty:
-            st.subheader("✅ Processed Portfolio Table")
-            st.dataframe(df)
-
 
 
