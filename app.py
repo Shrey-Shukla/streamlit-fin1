@@ -63,8 +63,8 @@ def extract_table_using_gpt(image_file, api_key):
 
     try:
         image_url = upload.json()["data"]["url"]
-    except:
-        st.error("Invalid response from ImgBB.")
+    except Exception as e:
+        st.error(f"Invalid response from ImgBB: {e}")
         return pd.DataFrame()
 
     messages = [
@@ -108,19 +108,23 @@ def extract_table_using_gpt(image_file, api_key):
                         messages=messages,
                     )
                 except Exception as fallback_error:
-                st.error(f"OpenAI fallback call also failed: {fallback_error}")
-                return pd.DataFrame()
+                    st.error(f"OpenAI fallback call also failed: {fallback_error}")
+                    return pd.DataFrame()
         else:
             st.error(f"OpenAI API call failed: {e}")
             return pd.DataFrame()
 
-    text_output = response.choices[0].message.content
+    text_output = response.choices[0].message.content.strip()
     st.subheader("📋 Extracted Table (raw)")
     st.code(text_output, language="csv")
     st.info(f"✅ Response generated using: {model_used}")
 
     try:
-        df = pd.read_csv(pd.compat.StringIO(text_output)) if "Stock" in text_output else pd.DataFrame()
+        if "Stock" in text_output and "Amount" in text_output and "," in text_output:
+            df = pd.read_csv(pd.compat.StringIO(text_output))
+        else:
+            st.warning("⚠️ GPT output does not appear to be a clean CSV with 'Stock' and 'Amount Invested'. Showing raw output only.")
+            df = pd.DataFrame()
     except Exception as e:
         st.error(f"Failed to parse GPT output into table: {e}")
         df = pd.DataFrame()
