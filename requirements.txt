@@ -1,6 +1,5 @@
 streamlit
 pandas
-openai
+openai>=1.0.0
 requests
-streamlit-authenticator
 pillow
