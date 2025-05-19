@@ -32,11 +32,13 @@ openai_api_key = st.secrets["OPENAI_API_KEY"]
 upload_type = st.radio("Select upload format", ["Screenshot Image"], index=0)
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["png", "jpg", "jpeg"], key="main_upload")
 
+df = pd.DataFrame()
 if uploaded_file is not None:
     process_now = st.button("📥 Process Uploaded Portfolio", key="process_button")
     if process_now:
         df = extract_table_using_gpt(uploaded_file, openai_api_key)
-if 'df' in locals() and not df.empty:
+
+if not df.empty:
         st.subheader("✅ Processed Portfolio Table")
         st.dataframe(df)
 
