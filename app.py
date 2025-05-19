@@ -8,13 +8,17 @@ from fpdf import FPDF
 
 st.set_page_config(page_title="Portfolio Risk Analyzer", layout="wide")
 st.title("📊 AI Portfolio Risk Analyzer")
-st.markdown("Upload a screenshot of your portfolio. This version intelligently deduces investment names and amounts even from messy or unclear layouts.")
+st.markdown("Upload a screenshot of your portfolio. The system intelligently extracts investments and amounts from even messy layouts.")
 
+# ✅ Ensure API key is present
+if "GEMINI_API_KEY" not in st.secrets or not st.secrets["GEMINI_API_KEY"]:
+    st.error("🚫 Gemini API key not found. Please set GEMINI_API_KEY in .streamlit/secrets.toml.")
+    st.stop()
+
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 st.session_state.authenticated = True
 st.session_state.username = "debug_user"
 st.sidebar.success(f"Welcome, {st.session_state.username}!")
-
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 # 📄 PDF Report Generator
 def generate_pdf(df, recommendation, ai_summary):
@@ -50,7 +54,7 @@ def generate_pdf(df, recommendation, ai_summary):
     pdf.output(output)
     return output.getvalue()
 
-# 🧠 Flexible parser for messy CSV
+# 🧠 Flexible parser for noisy CSV
 def parse_flexible_csv(text_output):
     rows = []
     for line in text_output.strip().splitlines():
@@ -81,19 +85,17 @@ def parse_flexible_csv(text_output):
     df = pd.DataFrame(data, columns=["Investment", "Amount"])
     return df
 
-# 🧠 Gemini Table Extraction
+# 🧠 Gemini Table Extraction with 400-proofing
 def extract_table_using_gemini(image_file):
     with st.spinner("🔍 Analyzing screenshot with Gemini..."):
         prompt = """
-You're a financial assistant. Analyze the attached screenshot and extract a clean list of investments.
+You're a financial assistant. Analyze the screenshot and extract a clean list of investments.
 
 For each row, extract:
-1. The investment name (stock, mutual fund, or plan)
+1. The investment name (fund, stock, or plan)
 2. The invested amount (in INR)
 
-Even if headers are unclear or inconsistent, infer the meaning from context.
-Output a clean CSV with headers: Investment, Amount.
-Only return the raw CSV.
+Even if headers are inconsistent, infer from context. Output a CSV with headers: Investment, Amount. Return only the CSV.
 """
         try:
             img = Image.open(image_file).convert("RGB")
@@ -101,12 +103,11 @@ Only return the raw CSV.
             response = model.generate_content([prompt, img], stream=False)
             text_output = response.text.strip()
         except Exception as e:
-            st.error(f"Gemini failed: {e}")
+            st.error(f"🚫 Gemini Vision API call failed: {e}")
             return pd.DataFrame()
 
     st.success("✅ Gemini response received")
     st.code(text_output)
-
     return parse_flexible_csv(text_output)
 
 # 📤 Upload Interface
@@ -145,7 +146,7 @@ if not df.empty:
 
         st.subheader("🧠 AI-Generated Summary")
         summary_prompt = f"Write a one-paragraph risk analysis for this portfolio:\n{df.to_csv(index=False)}"
-        ai_summary = genai.GenerativeModel("gemini-1.5-flash").generate_content(summary_prompt).text.strip()
+        ai_summary = genai.GenerativeModel("gemini-1.5-flash").generate_content([summary_prompt]).text.strip()
         st.markdown(ai_summary)
 
         st.subheader("📌 Final Recommendation")
