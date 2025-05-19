@@ -41,7 +41,7 @@ openai_api_key = st.secrets["OPENAI_API_KEY"]
 
 upload_type = st.radio("Select upload format", ["CSV File", "Screenshot Image"])
 
-uploaded_file = st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"])
+uploaded_file = st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"], key="main_upload")
 
 # Trigger processing
 if uploaded_file is not None:
