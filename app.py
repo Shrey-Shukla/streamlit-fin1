@@ -16,23 +16,9 @@ st.set_page_config(page_title="Portfolio Risk Analyzer", layout="wide")
 st.title("📊 AI Portfolio Risk Analyzer")
 st.markdown("Upload your portfolio (CSV or Screenshot of a table with `Stock` and `Amount Invested`) and get an AI-powered risk summary.")
 
-# Simple login using Streamlit session_state
-if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
-
-if not st.session_state.authenticated:
-    with st.sidebar:
-        st.subheader("🔐 Login")
-        username_input = st.text_input("Username")
-        password_input = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if username_input == "demo" and password_input == "demo197":
-                st.session_state.authenticated = True
-                st.session_state.username = username_input
-                st.rerun()
-            else:
-                st.error("Invalid credentials")
-    st.stop()
+# Simple login using Streamlit session_state (DISABLED FOR DEBUGGING)
+st.session_state.authenticated = True
+st.session_state.username = "debug_user"
 
 # After login
 username = st.session_state.username
@@ -42,16 +28,6 @@ openai_api_key = st.secrets["OPENAI_API_KEY"]
 # Only show Screenshot mode
 upload_type = st.radio("Select upload format", ["Screenshot Image"], index=0)
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["png", "jpg", "jpeg"], key="main_upload")
-
-if uploaded_file is not None:
-    process_now = st.button("📥 Process Uploaded Portfolio")
-    if process_now:
-        df = extract_table_using_gpt(uploaded_file, openai_api_key)
-
-        if not df.empty:
-            st.subheader("✅ Processed Portfolio Table")
-            st.dataframe(df)
-
 
 def extract_table_using_gpt(image_file, api_key):
     img = Image.open(image_file).convert("RGB")
@@ -122,5 +98,16 @@ def extract_table_using_gpt(image_file, api_key):
         df = pd.DataFrame()
 
     return df
+
+
+if uploaded_file is not None:
+    process_now = st.button("📥 Process Uploaded Portfolio")
+    if process_now:
+        df = extract_table_using_gpt(uploaded_file, openai_api_key)
+
+        if not df.empty:
+            st.subheader("✅ Processed Portfolio Table")
+            st.dataframe(df)
+
 
 
