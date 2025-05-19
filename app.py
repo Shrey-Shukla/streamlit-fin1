@@ -43,6 +43,23 @@ upload_type = st.radio("Select upload format", ["CSV File", "Screenshot Image"])
 
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"])
 
+# Trigger processing
+if uploaded_file is not None:
+    if upload_type == "CSV File":
+        try:
+            df = pd.read_csv(uploaded_file)
+            st.success("CSV successfully loaded.")
+        except Exception as e:
+            st.error(f"Error reading CSV: {e}")
+            df = pd.DataFrame()
+    else:
+        df = extract_table_using_gpt(uploaded_file, openai_api_key)
+
+    if not df.empty:
+        st.subheader("✅ Processed Portfolio Table")
+        st.dataframe(df)
+st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"])
+
 def extract_table_using_gpt(image_file, api_key):
     img = Image.open(image_file).convert("RGB")
     st.image(img, caption="Uploaded Screenshot", use_column_width=True)
