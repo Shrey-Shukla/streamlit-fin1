@@ -22,7 +22,7 @@ names = ["Demo User"]
 usernames = ["demo"]
 passwords = ["demo123"]
 
-hashed_passwords = stauth.Hasher(passwords).generate()
+hashed_passwords = {"demo": "$2b$12$KIXxC4dxWQzDTSVTBga9uODMeRQU6PDDXMcNeUXO43UBoF5zAwvUm"}  # password: demo123
 authenticator = stauth.Authenticate(names, usernames, hashed_passwords, "portfolio_app", "abcdef", cookie_expiry_days=1)
 
 name, authentication_status, username = authenticator.login("Login", "main")
