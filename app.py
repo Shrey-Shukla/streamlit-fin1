@@ -2,12 +2,15 @@
 
 import streamlit as st
 import pandas as pd
-import openai
 import requests
 import streamlit_authenticator as stauth
 import datetime
 import os
 from PIL import Image
+import base64
+from io import BytesIO
+
+import openai  # <-- Ensure OpenAI is imported globally
 
 st.set_page_config(page_title="Portfolio Risk Analyzer", layout="wide")
 
@@ -58,30 +61,27 @@ if authentication_status:
         return sector_map.get(stock_name, "Unknown")
 
     def extract_table_using_gpt(image_file, api_key):
-        img = Image.open(image_file)
-        img = img.convert("RGB")
-        buffered = st.image(img, caption="Uploaded Screenshot", use_column_width=True)
+        img = Image.open(image_file).convert("RGB")
+        st.image(img, caption="Uploaded Screenshot", use_column_width=True)
 
-        import base64
-        from io import BytesIO
         buffered_io = BytesIO()
         img.save(buffered_io, format="PNG")
         img_str = base64.b64encode(buffered_io.getvalue()).decode()
 
-        prompt = f"""
+        prompt = """
 The following image is a screenshot of a portfolio table. Extract a list of rows in the format:
 [Stock/Fund Name, Amount Invested]
 
 Output only as a table with columns `Stock` and `Amount Invested`, no extra text.
 """
 
-        headers = {"Authorization": f"Bearer {api_key}"}
         messages = [
             {"role": "system", "content": "You are an expert in reading screenshots and extracting financial data."},
             {"role": "user", "content": prompt},
             {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_str}"}}]}
         ]
 
+        openai.api_key = api_key
         response = openai.ChatCompletion.create(
             model="gpt-4o",
             messages=messages,
@@ -125,16 +125,14 @@ Provide insights on:
 Respond in structured bullet points.
 """
 
-                openai.api_key = openai_api_key
-                with st.spinner("Analyzing portfolio with GPT..."):
-                    response = openai.ChatCompletion.create(
-                        model="gpt-4o",
-                        messages=[
-                            {"role": "system", "content": "You are a finance expert."},
-                            {"role": "user", "content": prompt}
-                        ]
-                    )
-                    analysis = response["choices"][0]["message"]["content"]
+                response = openai.ChatCompletion.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are a finance expert."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                analysis = response["choices"][0]["message"]["content"]
 
                 st.subheader("📌 AI-Powered Risk Summary")
                 st.markdown(analysis)
@@ -149,4 +147,3 @@ elif authentication_status is False:
     st.error("Incorrect username or password")
 elif authentication_status is None:
     st.warning("Please enter your username and password")
-
