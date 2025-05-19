@@ -123,4 +123,3 @@ def extract_table_using_gpt(image_file, api_key):
 
     return df
 
-
