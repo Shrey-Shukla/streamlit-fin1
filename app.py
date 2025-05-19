@@ -40,25 +40,25 @@ st.sidebar.success(f"Welcome, {username}!")
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 
 upload_type = st.radio("Select upload format", ["CSV File", "Screenshot Image"])
-
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"], key="main_upload")
 
-# Trigger processing
 if uploaded_file is not None:
-    if upload_type == "CSV File":
-        try:
-            df = pd.read_csv(uploaded_file)
-            st.success("CSV successfully loaded.")
-        except Exception as e:
-            st.error(f"Error reading CSV: {e}")
-            df = pd.DataFrame()
-    else:
-        df = extract_table_using_gpt(uploaded_file, openai_api_key)
+    process_now = st.button("📥 Process Uploaded Portfolio")
+    if process_now:
+        if upload_type == "CSV File":
+            try:
+                df = pd.read_csv(uploaded_file, encoding_errors='replace')
+                st.success("CSV successfully loaded.")
+            except Exception as e:
+                st.error(f"Error reading CSV: {e}")
+                df = pd.DataFrame()
+        else:
+            df = extract_table_using_gpt(uploaded_file, openai_api_key)
 
-    if not df.empty:
-        st.subheader("✅ Processed Portfolio Table")
-        st.dataframe(df)
-st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"])
+        if not df.empty:
+            st.subheader("✅ Processed Portfolio Table")
+            st.dataframe(df)
+# Removed duplicate file_uploader
 
 def extract_table_using_gpt(image_file, api_key):
     img = Image.open(image_file).convert("RGB")
