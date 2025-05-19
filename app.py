@@ -77,7 +77,7 @@ def extract_table_using_gpt(image_file, api_key):
     openai_client = openai.OpenAI(api_key=api_key)
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-3.5-turbo",
             messages=messages,
         )
     except Exception as e:
