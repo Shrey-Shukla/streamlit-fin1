@@ -22,8 +22,16 @@ names = ["Demo User"]
 usernames = ["demo"]
 passwords = ["demo123"]
 
-hashed_passwords = {"demo": "$2b$12$KIXxC4dxWQzDTSVTBga9uODMeRQU6PDDXMcNeUXO43UBoF5zAwvUm"}  # password: demo123
-authenticator = stauth.Authenticate(names, usernames, hashed_passwords, "portfolio_app", "abcdef", cookie_expiry_days=1)
+credentials = {
+    "usernames": {
+        "demo": {
+            "name": "Demo User",
+            "password": "$2b$12$KIXxC4dxWQzDTSVTBga9uODMeRQU6PDDXMcNeUXO43UBoF5zAwvUm"
+        }
+    }
+}
+
+authenticator = stauth.Authenticate(credentials, "portfolio_app", "abcdef", cookie_expiry_days=1)
 
 name, authentication_status, username = authenticator.login("Login", "main")
 
