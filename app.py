@@ -9,6 +9,7 @@ from PIL import Image
 import base64
 from io import BytesIO
 import openai
+import tempfile
 
 st.set_page_config(page_title="Portfolio Risk Analyzer", layout="wide")
 
@@ -43,7 +44,6 @@ upload_type = st.radio("Select upload format", ["CSV File", "Screenshot Image"])
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"])
 
 def extract_table_using_gpt(image_file, api_key):
-    import tempfile
     img = Image.open(image_file).convert("RGB")
     st.image(img, caption="Uploaded Screenshot", use_column_width=True)
 
@@ -59,7 +59,16 @@ def extract_table_using_gpt(image_file, api_key):
             params={"key": imgbb_key},
             files={"image": f}
         )
-    image_url = upload.json()["data"]["url"]
+
+    if upload.status_code != 200:
+        st.error("Failed to upload image to ImgBB. Please try again.")
+        return pd.DataFrame()
+
+    try:
+        image_url = upload.json()["data"]["url"]
+    except:
+        st.error("Invalid response from ImgBB.")
+        return pd.DataFrame()
 
     # Construct GPT-4o vision prompt
     messages = [
@@ -82,21 +91,26 @@ def extract_table_using_gpt(image_file, api_key):
                 }
             ]
         }
-    ]}
     ]
 
     openai.api_key = api_key
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=messages,
-    )
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=messages,
+        )
+    except Exception as e:
+        st.error(f"OpenAI API call failed: {e}")
+        return pd.DataFrame()
 
     text_output = response["choices"][0]["message"]["content"]
-    try:
-        df = pd.read_csv(pd.compat.StringIO(text_output)) if "Stock" in text_output else pd.DataFrame()
-    except:
-        df = pd.DataFrame()
-    
     st.subheader("📋 Extracted Table (raw)")
     st.code(text_output, language="csv")
 
+    try:
+        df = pd.read_csv(pd.compat.StringIO(text_output)) if "Stock" in text_output else pd.DataFrame()
+    except Exception as e:
+        st.error(f"Failed to parse GPT output into table: {e}")
+        df = pd.DataFrame()
+
+    return df
