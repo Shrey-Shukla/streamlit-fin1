@@ -1,4 +1,4 @@
-# Portfolio Risk Analyzer - Streamlit + GPT Vision (Screenshot Only)
+# Portfolio Risk Analyzer - Screenshot Upload with GPT-4o Fallback
 
 import streamlit as st
 import pandas as pd
@@ -21,11 +21,11 @@ username = st.session_state.username
 st.sidebar.success(f"Welcome, {username}!")
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 
-# 🔍 GPT Vision + fallback function
+# 🧠 Function to extract table from image using GPT with fallback
 def extract_table_using_gpt(image_file, api_key):
     imgbb_key = "e13ed12a576ec71e5c53cb86220eb9e8"
 
-    # Upload image
+    # Upload image to ImgBB
     st.info("Uploading image to ImgBB and sending to GPT...")
     img = Image.open(image_file).convert("RGB")
     buffered = BytesIO()
@@ -89,7 +89,7 @@ def extract_table_using_gpt(image_file, api_key):
     st.success(f"Extracted table using **{model_used}**")
     st.code(text_output)
 
-    # Try parsing
+    # Try parsing as CSV
     if "Stock" in text_output and "Amount" in text_output and "," in text_output:
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".csv", mode="w", encoding="utf-8") as temp_file:
@@ -104,18 +104,19 @@ def extract_table_using_gpt(image_file, api_key):
         st.warning("⚠️ GPT output does not contain a valid table structure.")
         return pd.DataFrame()
 
-
-# 🖼️ Upload Section (Screenshot Only)
+# 🖼️ Upload interface
 st.subheader("📸 Upload Screenshot")
 upload_type = st.radio("Upload format", ["Screenshot Image"], index=0)
 uploaded_file = st.file_uploader("Upload your portfolio screenshot", type=["png", "jpg", "jpeg"], key="main_upload")
 
+# 📥 Process uploaded file
 df = pd.DataFrame()
 if uploaded_file is not None:
     process_now = st.button("📥 Process Uploaded Portfolio", key="process_button")
     if process_now:
         df = extract_table_using_gpt(uploaded_file, openai_api_key)
 
+# 📊 Show result
 if not df.empty:
     st.subheader("✅ Processed Portfolio Table")
     st.dataframe(df)
