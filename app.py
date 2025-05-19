@@ -92,6 +92,7 @@ def extract_table_using_gpt(image_file, api_key):
     openai_client = openai.OpenAI(api_key=api_key)
     try:
         with st.spinner("Calling GPT-4o..."):
+            model_used = "gpt-4o"
             response = openai_client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
@@ -100,11 +101,13 @@ def extract_table_using_gpt(image_file, api_key):
         if hasattr(e, 'status_code') and e.status_code == 429:
             st.warning("gpt-4o quota exceeded. Falling back to gpt-3.5-turbo.")
             with st.spinner("Calling GPT-3.5-turbo..."):
-                response = openai_client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                )
-            except Exception as fallback_error:
+                model_used = "gpt-3.5-turbo"
+                try:
+                    response = openai_client.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=messages,
+                    )
+                except Exception as fallback_error:
                 st.error(f"OpenAI fallback call also failed: {fallback_error}")
                 return pd.DataFrame()
         else:
@@ -114,6 +117,7 @@ def extract_table_using_gpt(image_file, api_key):
     text_output = response.choices[0].message.content
     st.subheader("📋 Extracted Table (raw)")
     st.code(text_output, language="csv")
+    st.info(f"✅ Response generated using: {model_used}")
 
     try:
         df = pd.read_csv(pd.compat.StringIO(text_output)) if "Stock" in text_output else pd.DataFrame()
