@@ -67,12 +67,25 @@ def log_user_activity(username, action):
         entry.to_csv(log_file, index=False)
 
 def extract_table_using_gpt(image_file, api_key):
+    import tempfile
+
     img = Image.open(image_file).convert("RGB")
     st.image(img, caption="Uploaded Screenshot", use_column_width=True)
 
-    buffered_io = BytesIO()
-    img.save(buffered_io, format="PNG")
-    img_str = base64.b64encode(buffered_io.getvalue()).decode()
+    # Save to temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+        img.save(tmp.name, format="PNG")
+        tmp_path = tmp.name
+
+    # Upload image to imgbb or another host (using imgbb for simplicity)
+    imgbb_key = "e13ed12a576ec71e5c53cb86220eb9e8"  # replace with your actual imgbb API key
+    with open(tmp_path, "rb") as f:
+        response = requests.post(
+            "https://api.imgbb.com/1/upload",
+            params={"key": imgbb_key},
+            files={"image": f}
+        )
+    image_url = response.json()["data"]["url"]
 
     prompt = """
 The following image is a screenshot of a portfolio table. Extract a list of rows in the format:
@@ -84,7 +97,7 @@ Output only as a table with columns `Stock` and `Amount Invested`, no extra text
     messages = [
         {"role": "system", "content": "You are an expert in reading screenshots and extracting financial data."},
         {"role": "user", "content": prompt},
-        {"role": "user", "content": [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_str}"}}]}
+        {"role": "user", "content": [{"type": "image_url", "image_url": {"url": image_url}}]}
     ]
 
     openai.api_key = api_key
