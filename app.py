@@ -16,7 +16,7 @@ st.sidebar.success(f"Welcome, {st.session_state.username}!")
 
 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-# 📄 Generate downloadable PDF
+# 📄 PDF Report Generator
 def generate_pdf(df, recommendation, ai_summary):
     pdf = FPDF()
     pdf.add_page()
@@ -50,16 +50,27 @@ def generate_pdf(df, recommendation, ai_summary):
     pdf.output(output)
     return output.getvalue()
 
-# 🧹 Clean Gemini CSV output
-def clean_gemini_csv(text_output):
-    lines = text_output.strip().splitlines()
-    lines = [line for line in lines if not line.strip().startswith("|---")]
-    lines = [line for line in lines if line.strip() and not line.strip().startswith("#")]
-    if "|" in lines[0]:
-        lines = [line.replace("|", ",").strip() for line in lines]
-    return "\n".join(lines)
+# ✅ Clean & Parse Gemini's CSV output
+def parse_clean_csv(text_output):
+    cleaned_rows = []
+    for line in text_output.strip().splitlines():
+        line = line.strip().replace("“", '"').replace("”", '"').replace("’", "'")
+        if line.count(",") == 1:
+            parts = line.split(",")
+            if len(parts) == 2:
+                cleaned_rows.append([p.strip() for p in parts])
 
-# 🧠 Gemini table extraction
+    try:
+        df = pd.DataFrame(cleaned_rows[1:], columns=cleaned_rows[0])  # skip header
+        df.columns = [col.strip() for col in df.columns]
+        df["Amount Invested"] = pd.to_numeric(df["Amount Invested"], errors="coerce")
+        df = df.dropna(subset=["Amount Invested"])
+        return df
+    except Exception as e:
+        st.warning(f"⚠️ Could not fully parse table: {e}")
+        return pd.DataFrame()
+
+# 🧠 Table Extraction from Gemini
 def extract_table_using_gemini(image_file):
     with st.spinner("🔍 Processing screenshot with Gemini..."):
         prompt = """
@@ -79,15 +90,9 @@ No explanation or commentary — only the raw table.
     st.success("✅ Gemini response received")
     st.code(text_output)
 
-    try:
-        cleaned = clean_gemini_csv(text_output)
-        df = pd.read_csv(StringIO(cleaned))
-        return df
-    except Exception as e:
-        st.warning(f"⚠️ Could not parse Gemini table: {e}")
-        return pd.DataFrame()
+    return parse_clean_csv(text_output)
 
-# 📤 Upload interface
+# 📤 Upload Interface
 st.subheader("📸 Upload Screenshot")
 uploaded_file = st.file_uploader("Upload your portfolio screenshot", type=["png", "jpg", "jpeg"], key="main_upload")
 
@@ -97,7 +102,7 @@ if uploaded_file is not None:
     if process_now:
         df = extract_table_using_gemini(uploaded_file)
 
-# 📊 Summary + Export
+# ✅ Show Extracted Table, Risk Summary, Downloads
 if not df.empty:
     st.subheader("✅ Extracted Portfolio Table")
     st.dataframe(df)
@@ -122,17 +127,18 @@ if not df.empty:
             st.success("✅ Diversified: no stock exceeds 30% allocation.")
             recommendation = "Your portfolio looks balanced. Continue monitoring allocation periodically."
 
-        # 🧠 AI-generated portfolio summary
+        # AI Summary from Gemini
         st.subheader("🧠 AI-Generated Summary")
         summary_prompt = f"Provide a one-paragraph portfolio analysis for the following table:\n{df.to_csv(index=False)}"
         ai_response = genai.GenerativeModel("gemini-1.5-flash").generate_content(summary_prompt)
         ai_summary = ai_response.text.strip()
         st.markdown(ai_summary)
 
+        # Final Rec
         st.subheader("📌 Final Recommendation")
         st.success(recommendation)
 
-        # 📥 Downloads
+        # Downloads
         st.subheader("📤 Download")
         st.download_button("⬇️ Download CSV", df.to_csv(index=False).encode(), "portfolio.csv", "text/csv")
         st.download_button("⬇️ Download PDF Report", generate_pdf(df, recommendation, ai_summary), "portfolio_summary.pdf", "application/pdf")
