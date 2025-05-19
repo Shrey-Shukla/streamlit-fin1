@@ -39,32 +39,24 @@ username = st.session_state.username
 st.sidebar.success(f"Welcome, {username}!")
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 
-upload_type = st.radio("Select upload format", ["CSV File", "Screenshot Image"])
-uploaded_file = st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"], key="main_upload")
+# Only show Screenshot mode
+upload_type = st.radio("Select upload format", ["Screenshot Image"], index=0)
+uploaded_file = st.file_uploader("Upload your Portfolio", type=["png", "jpg", "jpeg"], key="main_upload")
 
 if uploaded_file is not None:
     process_now = st.button("📥 Process Uploaded Portfolio")
     if process_now:
-        if upload_type == "CSV File":
-            try:
-                df = pd.read_csv(uploaded_file, encoding_errors='replace', on_bad_lines='skip')
-                st.success("CSV successfully loaded.")
-            except Exception as e:
-                st.error(f"Error reading CSV: {e}")
-                df = pd.DataFrame()
-        else:
-            df = extract_table_using_gpt(uploaded_file, openai_api_key)
+        df = extract_table_using_gpt(uploaded_file, openai_api_key)
 
         if not df.empty:
             st.subheader("✅ Processed Portfolio Table")
             st.dataframe(df)
-# Removed duplicate file_uploader
+
 
 def extract_table_using_gpt(image_file, api_key):
     img = Image.open(image_file).convert("RGB")
     st.image(img, caption="Uploaded Screenshot", use_column_width=True)
 
-    # Save temporarily and upload to ImgBB
     with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
         img.save(tmp.name, format="PNG")
         tmp_path = tmp.name
@@ -87,7 +79,6 @@ def extract_table_using_gpt(image_file, api_key):
         st.error("Invalid response from ImgBB.")
         return pd.DataFrame()
 
-    # Construct GPT-4o vision prompt
     messages = [
         {
             "role": "system",
@@ -131,3 +122,5 @@ def extract_table_using_gpt(image_file, api_key):
         df = pd.DataFrame()
 
     return df
+
+
