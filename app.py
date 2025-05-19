@@ -41,3 +41,47 @@ openai_api_key = st.secrets["OPENAI_API_KEY"]
 upload_type = st.radio("Select upload format", ["CSV File", "Screenshot Image"])
 
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"])
+
+def extract_table_using_gpt(image_file, api_key):
+    import tempfile
+    img = Image.open(image_file).convert("RGB")
+    st.image(img, caption="Uploaded Screenshot", use_column_width=True)
+
+    # Save temporarily and upload to ImgBB
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+        img.save(tmp.name, format="PNG")
+        tmp_path = tmp.name
+
+    imgbb_key = "e13ed12a576ec71e5c53cb86220eb9e8"
+    with open(tmp_path, "rb") as f:
+        upload = requests.post(
+            "https://api.imgbb.com/1/upload",
+            params={"key": imgbb_key},
+            files={"image": f}
+        )
+    image_url = upload.json()["data"]["url"]
+
+    # Construct GPT-4o vision prompt
+    messages = [
+        {"role": "system", "content": "You are an expert in reading screenshots and extracting financial data."},
+        {"role": "user", "content": "Extract a table with columns 'Stock' and 'Amount Invested' from the image below."},
+        {"role": "user", "content": [
+            {
+                "type": "image_url",
+                "image_url": {"url": image_url}
+            }
+        ]}
+    ]
+
+    openai.api_key = api_key
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=messages,
+    )
+
+    text_output = response["choices"][0]["message"]["content"]
+    try:
+        df = pd.read_csv(pd.compat.StringIO(text_output)) if "Stock" in text_output else pd.DataFrame()
+    except:
+        df = pd.DataFrame()
+    return df
