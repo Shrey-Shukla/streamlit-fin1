@@ -37,3 +37,7 @@ if not st.session_state.authenticated:
 username = st.session_state.username
 st.sidebar.success(f"Welcome, {username}!")
 openai_api_key = st.secrets["OPENAI_API_KEY"]
+
+upload_type = st.radio("Select upload format", ["CSV File", "Screenshot Image"])
+
+uploaded_file = st.file_uploader("Upload your Portfolio", type=["csv", "png", "jpg", "jpeg"])
