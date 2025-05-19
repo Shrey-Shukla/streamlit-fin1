@@ -25,14 +25,16 @@ username = st.session_state.username
 st.sidebar.success(f"Welcome, {username}!")
 openai_api_key = st.secrets["OPENAI_API_KEY"]
 
-if uploaded_file is not None:
-    process_now = st.button("📥 Process Uploaded Portfolio")
-    if process_now:
-        df = extract_table_using_gpt(uploaded_file, openai_api_key)
+
 
 # Only show Screenshot mode
 upload_type = st.radio("Select upload format", ["Screenshot Image"], index=0)
 uploaded_file = st.file_uploader("Upload your Portfolio", type=["png", "jpg", "jpeg"], key="main_upload")
+
+if uploaded_file is not None:
+    process_now = st.button("📥 Process Uploaded Portfolio")
+    if process_now:
+        df = extract_table_using_gpt(uploaded_file, openai_api_key)
 if 'df' in locals() and not df.empty:
         st.subheader("✅ Processed Portfolio Table")
         st.dataframe(df)
